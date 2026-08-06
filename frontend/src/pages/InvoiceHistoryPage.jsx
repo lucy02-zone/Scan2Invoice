@@ -26,7 +26,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
-import { getInvoices, getExtractions } from '../api/invoices.js';
+import { getInvoices, getExtractions, getInvoiceFileUrl } from '../api/invoices.js';
 
 function statusColor(status) {
   if (status === 'completed') return 'success';
@@ -84,7 +84,7 @@ export function InvoiceHistoryPage() {
     return queryStr.includes(search.toLowerCase());
   });
 
-  const fileUrl = selectedInvoice ? `http://localhost:8000/api/v1/invoices/${selectedInvoice.id}/file` : '';
+  const fileUrl = selectedInvoice ? getInvoiceFileUrl(selectedInvoice.id) : '';
 
   return (
     <Box>
@@ -237,12 +237,18 @@ export function InvoiceHistoryPage() {
                 </Box>
 
                 {pdfPreviewOpen && (
-                  <Box sx={{ height: 400, borderRadius: 2, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                    <iframe
-                      src={fileUrl}
-                      title="Invoice File Preview"
+                  <Box sx={{ height: 450, borderRadius: 2, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
+                    <object
+                      data={fileUrl}
+                      type="application/pdf"
                       style={{ width: '100%', height: '100%', border: 'none' }}
-                    />
+                    >
+                      <iframe
+                        src={fileUrl}
+                        title="Invoice File Preview"
+                        style={{ width: '100%', height: '100%', border: 'none' }}
+                      />
+                    </object>
                   </Box>
                 )}
               </Stack>

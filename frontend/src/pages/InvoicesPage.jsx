@@ -8,7 +8,6 @@ import {
   Button,
   Stack,
   Chip,
-  Divider,
   LinearProgress,
   Alert,
   CircularProgress,
@@ -29,7 +28,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ArticleIcon from '@mui/icons-material/Article';
 
-import { processInvoice, getExtractions } from '../api/invoices.js';
+import { processInvoice, getExtractions, getInvoiceFileUrl } from '../api/invoices.js';
 import { ROUTES } from '../utils/constants.js';
 
 export function InvoicesPage() {
@@ -107,7 +106,7 @@ export function InvoicesPage() {
     setViewInvoiceId(null);
   };
 
-  const fileUrl = viewInvoiceId ? `http://localhost:8000/api/v1/invoices/${viewInvoiceId}/file` : '';
+  const fileUrl = viewInvoiceId ? getInvoiceFileUrl(viewInvoiceId) : '';
 
   return (
     <Box>
@@ -311,11 +310,17 @@ export function InvoicesPage() {
         </DialogTitle>
         <DialogContent dividers sx={{ p: 0, height: '75vh', bgcolor: '#f1f5f9' }}>
           {viewInvoiceId ? (
-            <iframe
-              src={fileUrl}
-              title="Invoice File Preview"
+            <object
+              data={fileUrl}
+              type="application/pdf"
               style={{ width: '100%', height: '100%', border: 'none' }}
-            />
+            >
+              <iframe
+                src={fileUrl}
+                title="Invoice File Preview"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </object>
           ) : (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress />

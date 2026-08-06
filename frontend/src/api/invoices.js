@@ -30,3 +30,8 @@ export function getExtractionByInvoiceId(invoiceId) {
 export function getDashboardStats() {
   return api.get('/dashboard/stats');
 }
+
+export function getInvoiceFileUrl(invoiceId) {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  return `${baseURL}/api/v1/invoices/${invoiceId}/file`;
+}

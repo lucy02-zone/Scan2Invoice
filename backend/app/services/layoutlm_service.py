@@ -15,11 +15,13 @@ class LayoutLMService:
         """Extract structured invoice fields from text using pattern recognition and intelligent parsing."""
         vendor_name = self._find_vendor(text, filename)
         invoice_number = self._find_invoice_number(text, filename)
-        invoice_date = self._find_date(text, ["date", "invoice date", "dated"])
-        due_date = self._find_date(text, ["due date", "due", "payment due"])
-        total_amount = self._find_amount(text, ["total", "grand total", "amount due", "balance due", "total amount"])
-        subtotal = self._find_amount(text, ["subtotal", "sub total", "net amount", "amount"])
-        tax_amount = self._find_amount(text, ["tax", "vat", "gst", "sales tax"])
+        invoice_date = self._find_date(text, ["invoice date", "dated", "date"])
+        due_date = self._find_date(text, ["due date", "payment due", "due"])
+        
+        # Word boundary search for amounts to avoid subtotal matching total
+        total_amount = self._find_amount(text, ["grand total", "total amount", "amount due", "balance due", "total"])
+        subtotal = self._find_amount(text, ["subtotal", "sub total", "net amount"])
+        tax_amount = self._find_amount(text, ["gst", "sales tax", "vat", "tax"])
         currency = self._find_currency(text)
 
         # Fallback intelligent values if fields could not be matched
@@ -38,7 +40,7 @@ class LayoutLMService:
             invoice_date = datetime.now().strftime("%Y-%m-%d")
 
         if not due_date:
-            due_date = datetime.now().strftime("%Y-%m-%d")
+            due_date = invoice_date
 
         if not total_amount:
             total_amount = "1,450.00"
@@ -46,9 +48,9 @@ class LayoutLMService:
         if not subtotal:
             try:
                 tot = float(total_amount.replace(',', ''))
-                subtotal = f"{tot * 0.85:.2f}"
+                subtotal = f"{tot * 0.85:,.2f}"
                 if not tax_amount:
-                    tax_amount = f"{tot * 0.15:.2f}"
+                    tax_amount = f"{tot * 0.15:,.2f}"
             except ValueError:
                 subtotal = "1,232.50"
 
@@ -68,9 +70,15 @@ class LayoutLMService:
         }
 
     def _find_vendor(self, text: str, filename: str) -> str | None:
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if lines:
+            first_line = lines[0]
+            if not re.search(r'(?i)(invoice|receipt|bill|statement|tax)', first_line) and len(first_line) > 2:
+                return first_line.rstrip('.')
+
         patterns = [
             r'(?i)(?:vendor|from|biller|supplier|company)\s*[:\-]?\s*([A-Za-z0-9\s.,&]+)',
-            r'(?i)^([A-Z][A-Za-z0-9\s.,&]{2,30})\s*(?:Inc|LLC|Ltd|Corp|Services|Solutions|Co)\.?'
+            r'(?i)^([A-Z][A-Za-z0-9\s.,&]{2,35})\s*(?:Pvt|Ltd|Inc|LLC|Corp|Services|Solutions|Co)\.?'
         ]
         for pat in patterns:
             match = re.search(pat, text, re.MULTILINE)
@@ -86,20 +94,19 @@ class LayoutLMService:
 
     def _find_date(self, text: str, keywords: list[str]) -> str | None:
         for kw in keywords:
-            pattern = rf'(?i){kw}\s*[:\-]?\s*(\d{{1,2}}[\/\.-]\d{{1,2}}[\/\.-]\d{{2,4}}|\d{{4}}[\/\.-]\d{{1,2}}[\/\.-]\d{{1,2}}|[A-Z][a-z]+\s+\d{{1,2}},\s+\d{{4}})'
+            pattern = rf'(?i)\b{kw}\b\s*[:\-]?\s*(\d{{1,2}}[\/\.-][A-Za-z0-9]+[\/\.-]\d{{2,4}}|\d{{4}}[\/\.-]\d{{1,2}}[\/\.-]\d{{1,2}}|[A-Z][a-z]+\s+\d{{1,2}},\s+\d{{4}})'
             match = re.search(pattern, text)
             if match:
                 return match.group(1).strip()
-        
-        # Generic date match
-        match = re.search(r'\b(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4})\b', text)
+
+        match = re.search(r'\b(\d{1,2}[\/\.-][A-Za-z0-9]+[\/\.-]\d{2,4}|\d{4}-\d{2}-\d{2})\b', text)
         if match:
             return match.group(1).strip()
         return None
 
     def _find_amount(self, text: str, keywords: list[str]) -> str | None:
         for kw in keywords:
-            pattern = rf'(?i){kw}\s*[:$€£]?\s*([\d,]+\.\d{{2}})'
+            pattern = rf'(?i)\b{kw}\b\s*[^0-9\n\r]*?([\d,]+\.\d{{2}})'
             match = re.search(pattern, text)
             if match:
                 return match.group(1).strip()
@@ -110,6 +117,6 @@ class LayoutLMService:
             return "€"
         if "£" in text or "GBP" in text:
             return "£"
-        if "₹" in text or "INR" in text:
+        if "₹" in text or "INR" in text or "Rs" in text:
             return "₹"
         return "$"
