@@ -1,12 +1,29 @@
-import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Card, CardContent, TextField, Typography, Link } from '@mui/material';
+import { useState } from 'react';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Box, Button, Card, CardContent, TextField, Typography, Link, Alert } from '@mui/material';
 import { useForm } from 'react-hook-form';
+
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { loginUser } from '../../api/auth.js';
 
 export function LoginPage() {
   const { register, handleSubmit, formState } = useForm();
+  const { errors } = formState;
+  const [apiError, setApiError] = useState(null);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const onSubmit = (values) => {
-    console.log('login values', values);
+  const onSubmit = async (values) => {
+    setApiError(null);
+
+    try {
+      const response = await loginUser(values);
+      const { token, user } = response.data;
+      login(token, user || { email: values.email });
+      navigate('/', { replace: true });
+    } catch (error) {
+      setApiError(error.response?.data?.detail || 'Unable to sign in. Check your credentials.');
+    }
   };
 
   return (
@@ -19,9 +36,16 @@ export function LoginPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             Enter your credentials to access the invoice automation dashboard.
           </Typography>
+          {apiError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {apiError}
+            </Alert>
+          )}
           <Box component="form" noValidate onSubmit={handleSubmit(onSubmit)}>
             <TextField
               {...register('email', { required: 'Email is required' })}
+              error={Boolean(errors.email)}
+              helperText={errors.email?.message}
               label="Email"
               fullWidth
               margin="normal"
@@ -29,6 +53,8 @@ export function LoginPage() {
             />
             <TextField
               {...register('password', { required: 'Password is required' })}
+              error={Boolean(errors.password)}
+              helperText={errors.password?.message}
               label="Password"
               fullWidth
               margin="normal"
