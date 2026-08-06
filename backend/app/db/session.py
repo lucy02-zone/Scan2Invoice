@@ -5,6 +5,12 @@ from typing import AsyncGenerator, Optional
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+from app.models.base import Base
+
+# Import models so their metadata is registered before table creation.
+from app.models import extracted_invoice as _extracted_invoice_model  # noqa: F401
+from app.models import invoice as _invoice_model  # noqa: F401
+from app.models import user as _user_model  # noqa: F401
 
 _engine: Optional[object] = None
 _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
@@ -41,6 +47,13 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
             autocommit=False,
         )
     return _session_factory
+
+
+async def init_db() -> None:
+    """Create database tables for all registered SQLAlchemy models."""
+    engine = get_engine()
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

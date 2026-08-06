@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
@@ -19,7 +19,7 @@ def get_auth_service(session: AsyncSession = Depends(get_db)) -> AuthService:
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
-    user_data: UserCreate,
+    user_data: UserCreate = Body(...),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> UserResponse:
     """Register a new user account."""
@@ -42,7 +42,7 @@ async def register_user(
 
 @router.post("/login", response_model=TokenResponse)
 async def login_user(
-    credentials: UserLogin,
+    credentials: UserLogin = Body(...),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """Authenticate a user and return a placeholder token response."""

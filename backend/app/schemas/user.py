@@ -27,7 +27,7 @@ class UserCreate(UserBase):
 class UserLogin(BaseModel):
     """Schema for user login requests."""
 
-    email: EmailStr
+    email: str
     password: str = Field(min_length=8, max_length=128)
 
 
