@@ -28,8 +28,13 @@ export function LoginPage() {
 
     try {
       const response = await loginUser(values);
-      const { token, user } = response.data;
-      login(token, user || { email: values.email });
+      // Backend may return `access_token` or `token` depending on implementation.
+      const token = response.data?.token || response.data?.access_token;
+      const user = response.data?.user || { email: values.email };
+      if (!token) {
+        throw new Error('Missing authentication token in response');
+      }
+      login(token, user);
       navigate(ROUTES.HOME, { replace: true });
     } catch (error) {
       setApiError(error.response?.data?.detail || 'Unable to sign in. Please verify your credentials.');

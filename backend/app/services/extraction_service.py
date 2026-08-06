@@ -34,6 +34,10 @@ class ExtractionService:
         """Retrieve structured extraction data for a given invoice."""
         return await self.extracted_invoice_repository.get_by_invoice_id(invoice_id)
 
+    async def get_all_extractions(self, limit: int = 100, offset: int = 0) -> list[ExtractedInvoice]:
+        """Retrieve all extractions ordered by creation date."""
+        return await self.extracted_invoice_repository.get_all_ordered(limit=limit, offset=offset)
+
     def to_dict(self, payload: Any) -> str:
         """Serialize arbitrary payload data to JSON text."""
         return json.dumps(payload, default=str)

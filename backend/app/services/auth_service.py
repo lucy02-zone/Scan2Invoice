@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from passlib.context import CryptContext
+import bcrypt
 
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate, UserLogin
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _normalize_password_for_bcrypt(password: str) -> bytes:
+    """Truncate passwords to the 72-byte bcrypt limit before hashing or verifying."""
+    return password.encode("utf-8")[:72]
 
 
 class AuthService:
@@ -19,11 +22,13 @@ class AuthService:
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify a plaintext password against a hashed password."""
-        return pwd_context.verify(plain_password, hashed_password)
+        normalized_password = _normalize_password_for_bcrypt(plain_password)
+        return bcrypt.checkpw(normalized_password, hashed_password.encode("utf-8"))
 
     def get_password_hash(self, password: str) -> str:
         """Hash a plaintext password for storage."""
-        return pwd_context.hash(password)
+        normalized_password = _normalize_password_for_bcrypt(password)
+        return bcrypt.hashpw(normalized_password, bcrypt.gensalt()).decode("utf-8")
 
     async def authenticate(self, credentials: UserLogin) -> Optional[User]:
         """Authenticate a user using email and password."""
@@ -46,3 +51,18 @@ class AuthService:
             hashed_password=self.get_password_hash(user_data.password),
         )
         return await self.user_repository.create(user)
+
+    async def update_user(self, email: str, full_name: Optional[str] = None, new_email: Optional[str] = None) -> User:
+        """Update profile information for a user."""
+        user = await self.user_repository.get_by_email(email)
+        if not user:
+            raise ValueError("User not found")
+        if full_name:
+            user.full_name = full_name
+        if new_email and new_email != email:
+            existing = await self.user_repository.get_by_email(new_email)
+            if existing:
+                raise ValueError("Email already in use")
+            user.email = new_email
+        return await self.user_repository.update(user)
+

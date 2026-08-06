@@ -11,3 +11,7 @@ export function registerUser(payload) {
 export function forgotPasswordUser(payload) {
   return api.post('/auth/forgot-password', payload);
 }
+
+export function updateProfile(payload) {
+  return api.put('/auth/profile', payload);
+}

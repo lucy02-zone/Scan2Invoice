@@ -21,3 +21,11 @@ class ExtractedInvoiceRepository(BaseRepository[ExtractedInvoice]):
             select(ExtractedInvoice).where(ExtractedInvoice.invoice_id == invoice_id)
         )
         return result.scalar_one_or_none()
+
+    async def get_all_ordered(self, limit: int = 100, offset: int = 0) -> list[ExtractedInvoice]:
+        """Retrieve all extractions ordered by creation date (newest first)."""
+        result = await self.session.execute(
+            select(ExtractedInvoice).order_by(ExtractedInvoice.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all())
+

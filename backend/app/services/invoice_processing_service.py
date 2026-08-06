@@ -19,9 +19,10 @@ class InvoiceProcessingService:
         self.spacy_service = SpacyService()
 
     def process(self, file_path: str) -> Dict[str, Any]:
-        """Run a placeholder processing pipeline over an invoice file."""
+        """Run processing pipeline over an invoice file."""
+        filename = Path(file_path).name
         extracted_text = self.ocr_service.extract_text(file_path)
-        layout_fields = self.layoutlm_service.extract_fields(extracted_text)
+        layout_fields = self.layoutlm_service.extract_fields(extracted_text, filename=filename)
         donut_result = self.donut_service.extract(extracted_text)
         spacy_result = self.spacy_service.extract_entities(extracted_text)
 

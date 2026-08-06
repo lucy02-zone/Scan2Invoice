@@ -30,7 +30,9 @@ def get_engine() -> object:
     if _engine is None:
         _engine = create_async_engine(
             _build_database_url(),
-            echo=settings.DEBUG,
+            # Keep SQL text echo disabled — control logging via Python's
+            # logging module to avoid noisy BEGIN/ROLLBACK lines in output.
+            echo=False,
             pool_pre_ping=True,
         )
     return _engine

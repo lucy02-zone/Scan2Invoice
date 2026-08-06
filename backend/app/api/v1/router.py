@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.dashboard import router as dashboard_router
 from app.api.v1.endpoints.extractions import router as extractions_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.invoices import router as invoices_router
@@ -17,6 +18,12 @@ api_router.include_router(
     auth_router,
     prefix="/auth",
     tags=["Authentication"],
+)
+
+api_router.include_router(
+    dashboard_router,
+    prefix="/dashboard",
+    tags=["Dashboard"],
 )
 
 api_router.include_router(

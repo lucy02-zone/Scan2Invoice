@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import logging
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -12,6 +15,20 @@ app = FastAPI(
     version=settings.VERSION,
     debug=settings.DEBUG,
 )
+
+# Enable CORS to allow browser-based frontends to call the API (dev-friendly).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Reduce SQL logging noise in development: SQLAlchemy prints BEGIN/ROLLBACK
+# for read-only request cleanup. Raise its level to WARNING to avoid
+# confusing ROLLBACK messages when requests complete normally.
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 app.include_router(api_router)
 

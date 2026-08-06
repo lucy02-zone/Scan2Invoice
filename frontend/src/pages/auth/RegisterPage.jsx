@@ -30,7 +30,7 @@ export function RegisterPage() {
 
     try {
       await registerUser({
-        fullName: values.fullName,
+        full_name: values.fullName,
         email: values.email,
         password: values.password
       });

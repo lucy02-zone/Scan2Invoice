@@ -60,8 +60,12 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUser = (updatedProfile) => {
+    setUser((prev) => ({ ...prev, ...updatedProfile }));
+  };
+
   const value = useMemo(
-    () => ({ user, token, isAuthenticated: Boolean(token), login, logout }),
+    () => ({ user, token, isAuthenticated: Boolean(token), login, logout, updateUser }),
     [user, token]
   );
 
