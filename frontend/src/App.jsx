@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { Layout } from './layouts/Layout.jsx';
+import { ProtectedRoute } from './routes/ProtectedRoute.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
 import { InvoicesPage } from './pages/InvoicesPage.jsx';
 import { InvoiceHistoryPage } from './pages/InvoiceHistoryPage.jsx';
@@ -11,23 +12,24 @@ import { LoginPage } from './pages/auth/LoginPage.jsx';
 import { RegisterPage } from './pages/auth/RegisterPage.jsx';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage.jsx';
 import { NotFoundPage } from './pages/NotFoundPage.jsx';
+import { ROUTES } from './utils/constants.js';
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/" element={<Layout />}>
+      <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+      <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+      <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<DashboardPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="history" element={<InvoiceHistoryPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/404" replace />} />
+        <Route path="*" element={<Navigate to={ROUTES.NOT_FOUND} replace />} />
       </Route>
-      <Route path="/404" element={<NotFoundPage />} />
+      <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
     </Routes>
   );
 }

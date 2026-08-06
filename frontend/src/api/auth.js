@@ -7,3 +7,7 @@ export function loginUser(credentials) {
 export function registerUser(payload) {
   return api.post('/auth/register', payload);
 }
+
+export function forgotPasswordUser(payload) {
+  return api.post('/auth/forgot-password', payload);
+}
