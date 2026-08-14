@@ -37,7 +37,17 @@ export function LoginPage() {
       login(token, user);
       navigate(ROUTES.HOME, { replace: true });
     } catch (error) {
-      setApiError(error.response?.data?.detail || 'Unable to sign in. Please verify your credentials.');
+      const status = error?.response?.status;
+      // No response at all = network error / Render cold-start timeout
+      if (!error.response) {
+        setApiError(
+          'The server is starting up — this can take up to 30 seconds on the free tier. Please try again in a moment.'
+        );
+      } else if (status === 401 || status === 403) {
+        setApiError('Invalid email or password. Please check your credentials and try again.');
+      } else {
+        setApiError(error.response?.data?.detail || 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
