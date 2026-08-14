@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Box, Typography, Paper, Grid, Stack, Chip, LinearProgress, CircularProgress } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { getDashboardStats, getInvoices } from '../api/invoices.js';
+import { getDashboardStats } from '../api/invoices.js';
 
 export function AnalyticsPage() {
   const [stats, setStats] = useState({ total_invoices: 0, completed: 0, processing: 0, uploaded: 0, failed: 0 });
-  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const [statsRes, invRes] = await Promise.all([
-          getDashboardStats(),
-          getInvoices()
-        ]);
+        const statsRes = await getDashboardStats();
         setStats(statsRes.data || {});
-        setInvoices(invRes.data || []);
       } catch (err) {
         console.error('Error loading analytics:', err);
       } finally {
@@ -28,13 +23,13 @@ export function AnalyticsPage() {
   }, []);
 
   const total = stats.total_invoices || 0;
-  const completedRate = total > 0 ? Math.round((stats.completed / total) * 100) : 100;
-  const failedRate = total > 0 ? Math.round((stats.failed / total) * 100) : 0;
-  const processingRate = total > 0 ? Math.round(((stats.processing + stats.uploaded) / total) * 100) : 0;
+  const completedRate = total > 0 ? Math.round(((stats.completed || 0) / total) * 100) : 100;
+  const failedRate = total > 0 ? Math.round(((stats.failed || 0) / total) * 100) : 0;
+  const processingRate = total > 0 ? Math.round((((stats.processing || 0) + (stats.uploaded || 0)) / total) * 100) : 0;
 
   const chartData = [
     { name: 'Completed', count: stats.completed || 0 },
-    { name: 'Processing', count: stats.processing + stats.uploaded || 0 },
+    { name: 'Processing', count: (stats.processing || 0) + (stats.uploaded || 0) },
     { name: 'Failed', count: stats.failed || 0 },
   ];
 

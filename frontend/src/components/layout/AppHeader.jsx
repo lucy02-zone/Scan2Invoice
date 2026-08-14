@@ -6,9 +6,12 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useColorMode } from '../../theme/ThemeProvider.jsx';
 import { getDashboardStats } from '../../api/invoices.js';
 import { ROUTES } from '../../utils/constants.js';
 
@@ -23,6 +26,7 @@ const titleMap = {
 
 export function AppHeader({ onMenuClick, drawerWidth }) {
   const { user, logout } = useAuth();
+  const { mode, toggleColorMode } = useColorMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -94,9 +98,29 @@ export function AppHeader({ onMenuClick, drawerWidth }) {
           />
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Tooltip title={`Switch to ${mode === 'dark' ? 'Light' : 'Dark'} mode`}>
+            <IconButton
+              onClick={toggleColorMode}
+              sx={{
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20, color: '#f59e0b' }} /> : <DarkModeIcon sx={{ fontSize: 20, color: '#64748b' }} />}
+            </IconButton>
+          </Tooltip>
+
           <Tooltip title={alertCount > 0 ? `${alertCount} invoice alerts` : 'No alerts'}>
-            <IconButton onClick={() => navigate(ROUTES.ANALYTICS)} sx={{ bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <IconButton
+              onClick={() => navigate(ROUTES.ANALYTICS)}
+              sx={{
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
               <Badge badgeContent={alertCount} color="error">
                 <NotificationsIcon color="action" sx={{ fontSize: 20 }} />
               </Badge>
@@ -113,11 +137,12 @@ export function AppHeader({ onMenuClick, drawerWidth }) {
               py: 0.5,
               px: 1.5,
               borderRadius: 3,
-              bgcolor: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+              border: '1px solid',
+              borderColor: 'divider',
               transition: 'all 0.2s ease',
               '&:hover': {
-                bgcolor: '#f1f5f9',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#f1f5f9',
               },
             }}
           >

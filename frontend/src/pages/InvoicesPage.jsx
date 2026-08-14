@@ -18,7 +18,8 @@ import {
   IconButton,
   Tooltip,
   Card,
-  CardContent
+  CardContent,
+  Avatar
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VisibilityIcon from '@mui/icons-material/Visibility';

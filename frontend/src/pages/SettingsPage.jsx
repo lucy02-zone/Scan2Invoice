@@ -8,14 +8,14 @@ import {
   Grid,
   TextField,
   Button,
-  Divider,
   Stack
 } from '@mui/material';
+import { useColorMode } from '../theme/ThemeProvider.jsx';
 
 export function SettingsPage() {
+  const { mode, toggleColorMode } = useColorMode();
   const [settings, setSettings] = useState({
     notifications: true,
-    darkMode: false,
     autoApprove: false,
     retentionDays: 90
   });
@@ -53,7 +53,7 @@ export function SettingsPage() {
               />
               <FormControlLabel
                 control={
-                  <Switch checked={settings.darkMode} onChange={handleToggle('darkMode')} />
+                  <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
                 }
                 label="Dark mode"
               />

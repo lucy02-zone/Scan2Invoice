@@ -64,7 +64,7 @@ export function DashboardPage() {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Total Invoices
             </Typography>
-            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : stats.total_invoices}</Typography>
+            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : (stats?.total_invoices || 0)}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Total invoices processed with AI extraction and approval tracking.
             </Typography>
@@ -76,7 +76,7 @@ export function DashboardPage() {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Processing Status
             </Typography>
-            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : stats.processing + stats.uploaded}</Typography>
+            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : (stats?.processing || 0) + (stats?.uploaded || 0)}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Invoices currently uploaded or being processed by the AI pipeline.
             </Typography>
@@ -88,7 +88,7 @@ export function DashboardPage() {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Accuracy Alerts / Failures
             </Typography>
-            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : stats.failed}</Typography>
+            <Typography variant="h3">{loading ? <CircularProgress size={30} /> : (stats?.failed || 0)}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Invoices flagged for extraction errors or low confidence.
             </Typography>
