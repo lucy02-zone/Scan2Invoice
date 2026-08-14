@@ -19,8 +19,12 @@ _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 def _build_database_url() -> str:
     """Return a database URL suitable for async SQLAlchemy usage."""
     database_url = settings.DATABASE_URL
-    if database_url.startswith("sqlite"):
-        return database_url.replace("sqlite://", "sqlite+aiosqlite://")
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if database_url.startswith("postgresql://") and "+asyncpg" not in database_url:
+        return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if database_url.startswith("sqlite://") and "+aiosqlite" not in database_url:
+        return database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
     return database_url
 
 
