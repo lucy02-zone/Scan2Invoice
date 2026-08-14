@@ -310,17 +310,21 @@ export function InvoicesPage() {
         </DialogTitle>
         <DialogContent dividers sx={{ p: 0, height: '75vh', bgcolor: '#f1f5f9' }}>
           {viewInvoiceId ? (
-            <object
-              data={fileUrl}
-              type="application/pdf"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-            >
+            /\.(png|jpg|jpeg|webp)$/i.test(viewInvoiceName) ? (
+              <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
+                <img
+                  src={fileUrl}
+                  alt={viewInvoiceName}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              </Box>
+            ) : (
               <iframe
                 src={fileUrl}
                 title="Invoice File Preview"
                 style={{ width: '100%', height: '100%', border: 'none' }}
               />
-            </object>
+            )
           ) : (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <CircularProgress />

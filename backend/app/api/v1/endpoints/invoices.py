@@ -82,7 +82,12 @@ async def get_invoice_file(
     if not file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File on disk not found")
 
-    return FileResponse(path=file_path, media_type=invoice.content_type, filename=invoice.filename)
+    return FileResponse(
+        path=file_path,
+        media_type=invoice.content_type,
+        filename=invoice.filename,
+        content_disposition_type="inline",
+    )
 
 
 @router.post("/upload", status_code=status.HTTP_202_ACCEPTED)

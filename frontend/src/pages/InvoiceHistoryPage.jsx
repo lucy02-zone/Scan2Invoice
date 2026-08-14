@@ -237,18 +237,22 @@ export function InvoiceHistoryPage() {
                 </Box>
 
                 {pdfPreviewOpen && (
-                  <Box sx={{ height: 450, borderRadius: 2, overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-                    <object
-                      data={fileUrl}
-                      type="application/pdf"
-                      style={{ width: '100%', height: '100%', border: 'none' }}
-                    >
+                  <Box sx={{ height: 450, borderRadius: 2, overflow: 'hidden', border: '1px solid #cbd5e1', bgcolor: '#f8fafc' }}>
+                    {selectedInvoice?.content_type?.startsWith('image/') || /\.(png|jpg|jpeg|webp)$/i.test(selectedInvoice?.filename || '') ? (
+                      <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2 }}>
+                        <img
+                          src={fileUrl}
+                          alt={selectedInvoice.filename}
+                          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        />
+                      </Box>
+                    ) : (
                       <iframe
                         src={fileUrl}
                         title="Invoice File Preview"
                         style={{ width: '100%', height: '100%', border: 'none' }}
                       />
-                    </object>
+                    )}
                   </Box>
                 )}
               </Stack>
