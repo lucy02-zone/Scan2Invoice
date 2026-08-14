@@ -8,9 +8,9 @@ from app.core.config import settings
 from app.models.base import Base
 
 # Import models so their metadata is registered before table creation.
-from app.models import extracted_invoice as _extracted_invoice_model  # noqa: F401
-from app.models import invoice as _invoice_model  # noqa: F401
-from app.models import user as _user_model  # noqa: F401
+from app.models.extracted_invoice import ExtractedInvoice as _extracted_invoice_model  # noqa: F401
+from app.models.invoice import Invoice as _invoice_model  # noqa: F401
+from app.models.user import User as _user_model  # noqa: F401
 
 _engine: Optional[object] = None
 _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
