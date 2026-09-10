@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { ROUTES } from '../utils/constants.js';
 
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 4;
+const RETRY_DELAY_MS = 3000;
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  timeout: 30000, // 30s — accounts for Render free-tier cold-start wake-up time
+  timeout: 60000, // 60s — accounts for Render free-tier cold-start wake-up time
   headers: {
     'Content-Type': 'application/json'
   }
