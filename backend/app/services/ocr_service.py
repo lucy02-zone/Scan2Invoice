@@ -94,14 +94,35 @@ class OCRService:
 
             # Scale up small images for better OCR detection
             w, h = image.size
-            if w < 1000 or h < 1000:
-                factor = max(1000.0 / max(w, 1), 1000.0 / max(h, 1))
+            if w < 1200 or h < 1200:
+                factor = max(1200.0 / max(w, 1), 1200.0 / max(h, 1))
+                factor = min(factor, 4.0)
                 new_size = (int(w * factor), int(h * factor))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
+                image = image.resize(new_size, Image.Resampling.BICUBIC)
 
-            ocr_text = self._ocr_pil_image(image)
-            if ocr_text:
+            from PIL import ImageEnhance
+            gray = ImageOps.grayscale(image)
+            enhancer = ImageEnhance.Contrast(gray)
+            contrast_img = enhancer.enhance(1.8)
+
+            ocr_text = self._ocr_pil_image(contrast_img)
+            if ocr_text and len(ocr_text.strip()) > 15:
                 return ocr_text
+
+            raw_text = self._ocr_pil_image(image)
+            if raw_text and len(raw_text.strip()) > len(ocr_text.strip()):
+                ocr_text = raw_text
+
+            # Inverted image fallback for dark background headers (white text)
+            if not ocr_text or len(ocr_text.strip()) < 30:
+                inverted_img = ImageOps.invert(gray)
+                inv_contrast = ImageEnhance.Contrast(inverted_img).enhance(2.0)
+                inv_text = self._ocr_pil_image(inv_contrast)
+                if inv_text and len(inv_text.strip()) > len(ocr_text.strip()):
+                    ocr_text = inv_text
+
+            if ocr_text and ocr_text.strip():
+                return ocr_text.strip()
         except Exception as e:
             logger.warning(f"PIL image preprocessing failed for {file_path}: {e}")
 
@@ -111,8 +132,7 @@ class OCRService:
             try:
                 result, _ = rapidocr(str(file_path))
                 if result:
-                    lines = [item[1] for item in result if item and len(item) > 1 and item[1]]
-                    text = "\n".join(lines).strip()
+                    text = self._format_rapidocr_result(result)
                     if text:
                         return text
             except Exception as e:
@@ -134,6 +154,53 @@ class OCRService:
 
         return ""
 
+    def _format_rapidocr_result(self, result: list) -> str:
+        """Sort RapidOCR bounding boxes top-to-bottom and left-to-right to preserve text layout."""
+        if not result:
+            return ""
+
+        items = []
+        for item in result:
+            if not item or len(item) < 2 or not item[1]:
+                continue
+            box = item[0]
+            text = str(item[1]).strip()
+            if not text:
+                continue
+            ys = [p[1] for p in box]
+            xs = [p[0] for p in box]
+            min_y, min_x = min(ys), min(xs)
+            height = max(ys) - min_y
+            items.append({"min_y": min_y, "min_x": min_x, "height": height, "text": text})
+
+        if not items:
+            return ""
+
+        items.sort(key=lambda i: i["min_y"])
+        lines = []
+        current_line = []
+        current_y = None
+
+        for item in items:
+            if current_y is None:
+                current_y = item["min_y"]
+                current_line.append(item)
+            else:
+                tolerance = max(item["height"] * 0.6, 12.0)
+                if abs(item["min_y"] - current_y) <= tolerance:
+                    current_line.append(item)
+                else:
+                    current_line.sort(key=lambda i: i["min_x"])
+                    lines.append("  ".join([i["text"] for i in current_line]))
+                    current_line = [item]
+                    current_y = item["min_y"]
+
+        if current_line:
+            current_line.sort(key=lambda i: i["min_x"])
+            lines.append("  ".join([i["text"] for i in current_line]))
+
+        return "\n".join(lines).strip()
+
     def _ocr_pil_image(self, image: Any) -> str:
         """Helper to run OCR on a PIL image object."""
         rapidocr = self._get_rapidocr()
@@ -143,8 +210,7 @@ class OCRService:
                 img_array = np.array(image.convert("RGB"))
                 result, _ = rapidocr(img_array)
                 if result:
-                    lines = [item[1] for item in result if item and len(item) > 1 and item[1]]
-                    text = "\n".join(lines).strip()
+                    text = self._format_rapidocr_result(result)
                     if text:
                         return text
             except Exception as e:
@@ -166,4 +232,5 @@ class OCRService:
             "file_name": Path(file_path).name,
             "extracted_text": extracted_text,
         }
+
 

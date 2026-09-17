@@ -88,7 +88,11 @@ class LayoutLMService:
                     continue
                 if len(line) > 2 and not line.startswith('#'):
                     clean_line = re.sub(r'(?i)^(vendor|biller|supplier|from|company)\s*[:\-]?\s*', '', line).strip()
-                    return clean_line.rstrip('.')
+                    clean_line = re.sub(r'(?i)\s*(?:invoice|tax invoice|receipt|statement|bill)\s*$', '', clean_line).strip()
+                    clean_line = clean_line.rstrip('.').strip()
+                    if clean_line and clean_line.lower() not in ["invoice", "receipt", "statement"]:
+                        return clean_line
+
 
         patterns = [
             r'(?i)(?:vendor|biller|supplier|from|company)\s*[:\-]?\s*([A-Za-z0-9\s.,&]+)',
@@ -117,14 +121,83 @@ class LayoutLMService:
 
     def _find_date(self, text: str, keywords: list[str]) -> str | None:
         for kw in keywords:
-            pattern = rf'(?i)\b{re.escape(kw)}\b\s*[:\-]?\s*(\d{{1,2}}[\/\.-][A-Za-z0-9]+[\/\.-]\d{{2,4}}|\d{{4}}[\/\.-]\d{{1,2}}[\/\.-]\d{{1,2}}|[A-Z][a-z]+\s+\d{{1,2}},\s+\d{{4}})'
-            match = re.search(pattern, text)
-            if match:
-                return match.group(1).strip()
+            pattern = rf'(?i)\b{re.escape(kw)}\b\s*[:\-]?\s*([A-Za-z0-9\/\.\,\-\s]{{6,30}})'
+            for match in re.finditer(pattern, text):
+                candidate = match.group(1).strip().split('\n')[0]
+                date_match = re.search(
+                    r'\b(\d{1,2}[\/\.-][A-Za-z0-9]+[\/\.-]\d{2,4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}|[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\b',
+                    candidate
+                )
+                if date_match:
+                    return date_match.group(1).strip()
 
-        match = re.search(r'\b(\d{1,2}[\/\.-][A-Za-z0-9]+[\/\.-]\d{2,4}|\d{4}-\d{2}-\d{2})\b', text)
+        match = re.search(
+            r'\b(\d{1,2}[\/\.-][A-Za-z0-9]+[\/\.-]\d{2,4}|\d{4}-\d{2}-\d{2}|[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\b',
+            text
+        )
         if match:
             return match.group(1).strip()
+        return None
+
+    def _parse_amount_from_snippet(self, snippet: str) -> float | None:
+        if not snippet:
+            return None
+
+        # Clean noise percentages like (18%) or brackets
+        clean = re.sub(r'\(?\d+(?:\.\d+)?%\)?', '', snippet)
+        # Normalize spaces around decimal points or commas (e.g. 154 . 06 -> 154.06)
+        clean = re.sub(r'(\d)\s*[\.]\s*(\d{2})\b', r'\1.\2', clean)
+
+        # 1. Prefix currency match ($154.06, €100.00, Rs. 50)
+        curr_prefix = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)', clean)
+        for m in curr_prefix:
+            try:
+                val = float(m.replace(',', ''))
+                if val > 0:
+                    return val
+            except ValueError:
+                pass
+
+        # 2. Suffix currency match (154.06 $, 100 USD)
+        curr_suffix = re.findall(r'([\d,]+(?:\.\d{1,2})?)\s*(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)', clean)
+        for m in curr_suffix:
+            try:
+                val = float(m.replace(',', ''))
+                if val > 0:
+                    return val
+            except ValueError:
+                pass
+
+        # 3. Standard decimal match (154.06)
+        dec_matches = re.findall(r'\b([\d,]+\.\d{2})\b', clean)
+        for m in dec_matches:
+            try:
+                val = float(m.replace(',', ''))
+                if val > 0:
+                    return val
+            except ValueError:
+                pass
+
+        # 4. European decimal format match (1.540,50 -> 1540.50)
+        euro_dec = re.findall(r'\b([\d\.]+\,\d{2})\b', clean)
+        for m in euro_dec:
+            try:
+                val = float(m.replace('.', '').replace(',', '.'))
+                if val > 0:
+                    return val
+            except ValueError:
+                pass
+
+        # 5. Integer matches (\b154\b)
+        int_matches = re.findall(r'\b([\d,]+)\b', clean)
+        for m in int_matches:
+            try:
+                val = float(m.replace(',', ''))
+                if val > 0:
+                    return val
+            except ValueError:
+                pass
+
         return None
 
     def _find_monetary_val(self, text: str, keywords: list[str]) -> float | None:
@@ -137,50 +210,33 @@ class LayoutLMService:
                     continue
 
                 if kw.lower() == 'total':
-                    prefix = line[:match.start()].lower()
-                    if 'sub' in prefix or 'net' in prefix or 'item' in prefix:
+                    pre_word = line[max(0, match.start() - 15):match.start()].lower()
+                    if re.search(r'(?:sub|net|item|qty|unit)', pre_word):
                         continue
 
-                search_text = line[match.end():]
-                if not re.search(r'\d', search_text) and i + 1 < len(lines):
-                    search_text = lines[i + 1]
+                # Build search window: remainder of line + up to 3 following lines
+                search_window = line[match.end():]
+                if not re.search(r'\d', search_window):
+                    next_lines = [lines[j] for j in range(i + 1, min(len(lines), i + 4))]
+                    search_window = " ".join([search_window] + next_lines)
 
-                # Strip non-digit noise characters like ■ or percentages like (18%)
-                search_text_clean = re.sub(r'\(?\d+(?:\.\d+)?%\)?', '', search_text)
-
-                curr_matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)', search_text_clean)
-                for m in curr_matches:
-                    try:
-                        val = float(m.replace(',', ''))
-                        if val > 0:
-                            return val
-                    except ValueError:
-                        pass
-
-                dec_matches = re.findall(r'[\d,]+\.\d{2}', search_text_clean)
-                for m in dec_matches:
-                    try:
-                        val = float(m.replace(',', ''))
-                        if val > 0:
-                            return val
-                    except ValueError:
-                        pass
-
-                int_matches = re.findall(r'\b([\d,]+)\b', search_text_clean)
-                for m in int_matches:
-                    try:
-                        val = float(m.replace(',', ''))
-                        if val > 0:
-                            return val
-                    except ValueError:
-                        pass
+                val = self._parse_amount_from_snippet(search_window)
+                if val is not None:
+                    return val
         return None
 
     def _find_all_monetary_vals(self, text: str) -> list[float]:
         amounts: list[float] = []
-        matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)|\b([\d,]+\.\d{2})\b', text)
+        clean = re.sub(r'(\d)\s*[\.]\s*(\d{2})\b', r'\1.\2', text)
+        matches = re.findall(
+            r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)'
+            r'|([\d,]+(?:\.\d{1,2})?)\s*(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)'
+            r'|\b([\d,]+\.\d{2})\b'
+            r'|\b([\d\.]+\,\d{2})\b',
+            clean
+        )
         for m in matches:
-            val_str = m[0] or m[1]
+            val_str = m[0] or m[1] or m[2] or (m[3].replace('.', '').replace(',', '.') if m[3] else '')
             if not val_str:
                 continue
             try:
@@ -199,4 +255,5 @@ class LayoutLMService:
         if "₹" in text or "INR" in text or "Rs" in text:
             return "₹"
         return "$"
+
 

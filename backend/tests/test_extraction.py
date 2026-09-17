@@ -102,6 +102,38 @@ class ExtractionServiceTests(unittest.TestCase):
         self.assertEqual(res2["invoice_number"], "INV-2026-001")
         self.assertEqual(res2["total_amount"], "41,300.00")
 
+    def test_same_line_subtotal_and_total(self):
+        text = "Subtotal: $100.00    Sales Tax: $10.00    Total: $110.00"
+        res = self.layout_service.extract_fields(text, filename="sameline.pdf")
+        self.assertEqual(res["subtotal"], "100.00")
+        self.assertEqual(res["tax_amount"], "10.00")
+        self.assertEqual(res["total_amount"], "110.00")
+
+    def test_multi_line_total_and_suffix_currency(self):
+        text = """
+        Apex Enterprise
+        Invoice Date: September 20, 2026
+        TOTAL
+        AMOUNT DUE
+        1,540.50 EUR
+        """
+        res = self.layout_service.extract_fields(text, filename="apex.pdf")
+        self.assertEqual(res["currency"], "€")
+        self.assertEqual(res["total_amount"], "1,540.50")
+        self.assertEqual(res["invoice_date"], "September 20, 2026")
+
+    def test_real_uploaded_png_images(self):
+        img_path = "uploads/5_resource.png"
+        if os.path.exists(img_path):
+            text = self.ocr_service.extract_text(img_path)
+            res = self.layout_service.extract_fields(text, filename=img_path)
+            self.assertEqual(res["vendor_name"], "East Repair Inc")
+            self.assertEqual(res["invoice_number"], "US-001")
+            self.assertEqual(res["total_amount"], "154.06")
+            self.assertEqual(res["subtotal"], "145.00")
+            self.assertEqual(res["tax_amount"], "9.06")
+
 
 if __name__ == "__main__":
     unittest.main()
+
