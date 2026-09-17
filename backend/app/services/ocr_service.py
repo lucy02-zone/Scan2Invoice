@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 import pypdf
 import pdfplumber
+
+logger = logging.getLogger(__name__)
 
 
 class OCRService:
@@ -11,6 +14,17 @@ class OCRService:
 
     def __init__(self, tesseract_cmd: Optional[str] = None) -> None:
         self.tesseract_cmd = tesseract_cmd
+        self._rapidocr_engine: Any = None
+
+    def _get_rapidocr(self) -> Any:
+        if self._rapidocr_engine is None:
+            try:
+                from rapidocr_onnxruntime import RapidOCR
+                self._rapidocr_engine = RapidOCR()
+            except Exception as e:
+                logger.warning(f"Could not initialize RapidOCR: {e}")
+                self._rapidocr_engine = False
+        return self._rapidocr_engine if self._rapidocr_engine is not False else None
 
     def extract_text(self, file_path: str | Path) -> str:
         """Extract text from an invoice document."""
@@ -25,7 +39,7 @@ class OCRService:
         return self._extract_from_image(path)
 
     def _extract_from_pdf(self, file_path: Path) -> str:
-        """Extract text from PDF using pypdf and pdfplumber."""
+        """Extract text from PDF using pypdf, pdfplumber, and RapidOCR fallback for scanned pages."""
         extracted_text = ""
         try:
             with open(file_path, "rb") as f:
@@ -34,8 +48,8 @@ class OCRService:
                     text = page.extract_text()
                     if text:
                         extracted_text += text + "\n"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"pypdf extraction failed for {file_path}: {e}")
 
         if not extracted_text.strip():
             try:
@@ -44,28 +58,85 @@ class OCRService:
                         text = page.extract_text()
                         if text:
                             extracted_text += text + "\n"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"pdfplumber extraction failed for {file_path}: {e}")
 
         if not extracted_text.strip():
-            extracted_text = f"Document: {file_path.name}\nInvoice content extracted automatically."
+            extracted_text = self._extract_scanned_pdf(file_path)
 
         return extracted_text.strip()
 
+    def _extract_scanned_pdf(self, file_path: Path) -> str:
+        """Extract text from scanned PDF by rendering pages to images and using OCR."""
+        text_lines = []
+        try:
+            import pypdfium2
+            pdf = pypdfium2.PdfDocument(file_path)
+            for page in pdf:
+                image = page.render(scale=2).to_pil()
+                ocr_text = self._ocr_pil_image(image)
+                if ocr_text:
+                    text_lines.append(ocr_text)
+        except Exception as e:
+            logger.warning(f"Scanned PDF OCR failed for {file_path}: {e}")
+
+        return "\n".join(text_lines)
+
     def _extract_from_image(self, file_path: Path) -> str:
-        """Extract text from raster images."""
+        """Extract text from raster images using RapidOCR or pytesseract."""
+        rapidocr = self._get_rapidocr()
+        if rapidocr:
+            try:
+                result, _ = rapidocr(str(file_path))
+                if result:
+                    lines = [item[1] for item in result if item and len(item) > 1 and item[1]]
+                    text = "\n".join(lines).strip()
+                    if text:
+                        return text
+            except Exception as e:
+                logger.warning(f"RapidOCR image extraction failed for {file_path}: {e}")
+
         try:
             import pytesseract
             from PIL import Image
 
+            if self.tesseract_cmd:
+                pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
+
             image = Image.open(file_path)
+            text = pytesseract.image_to_string(image)
+            if text.strip():
+                return text.strip()
+        except Exception as e:
+            logger.debug(f"Pytesseract failed for {file_path}: {e}")
+
+        return ""
+
+    def _ocr_pil_image(self, image: Any) -> str:
+        """Helper to run OCR on a PIL image object."""
+        rapidocr = self._get_rapidocr()
+        if rapidocr:
+            try:
+                import numpy as np
+                img_array = np.array(image.convert("RGB"))
+                result, _ = rapidocr(img_array)
+                if result:
+                    lines = [item[1] for item in result if item and len(item) > 1 and item[1]]
+                    text = "\n".join(lines).strip()
+                    if text:
+                        return text
+            except Exception as e:
+                logger.warning(f"RapidOCR PIL image OCR failed: {e}")
+
+        try:
+            import pytesseract
             text = pytesseract.image_to_string(image)
             if text.strip():
                 return text.strip()
         except Exception:
             pass
 
-        return f"Document Image: {file_path.name}\nImage invoice text extracted."
+        return ""
 
     def build_result(self, file_path: str | Path, extracted_text: str) -> Dict[str, Any]:
         """Build a normalized OCR result payload."""
@@ -73,3 +144,4 @@ class OCRService:
             "file_name": Path(file_path).name,
             "extracted_text": extracted_text,
         }
+
