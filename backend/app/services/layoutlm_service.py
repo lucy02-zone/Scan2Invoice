@@ -81,24 +81,38 @@ class LayoutLMService:
     def _find_vendor(self, text: str, filename: str) -> str | None:
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         if lines:
-            first_line = lines[0]
-            if not re.search(r'(?i)(invoice|receipt|bill|statement|tax)', first_line) and len(first_line) > 2:
-                return first_line.rstrip('.')
+            for line in lines[:5]:
+                if re.search(r'(?i)^(invoice|tax invoice|receipt|bill|statement|bill to|ship to|date|total)$', line):
+                    continue
+                if re.search(r'(?i)(?:invoice\s*#|receipt\s*#|bill to|gstin|phone|email|www|\d{5,})', line):
+                    continue
+                if len(line) > 2 and not line.startswith('#'):
+                    clean_line = re.sub(r'(?i)^(vendor|biller|supplier|from|company)\s*[:\-]?\s*', '', line).strip()
+                    return clean_line.rstrip('.')
 
         patterns = [
-            r'(?i)(?:vendor|from|biller|supplier|company)\s*[:\-]?\s*([A-Za-z0-9\s.,&]+)',
-            r'(?i)^([A-Z][A-Za-z0-9\s.,&]{2,35})\s*(?:Pvt|Ltd|Inc|LLC|Corp|Services|Solutions|Co)\.?'
+            r'(?i)(?:vendor|biller|supplier|from|company)\s*[:\-]?\s*([A-Za-z0-9\s.,&]+)',
+            r'(?i)^([A-Z][A-Za-z0-9\s.,&]{2,40})\s*(?:Pvt|Ltd|Inc|LLC|Corp|Services|Solutions|Co)\.?'
         ]
         for pat in patterns:
             match = re.search(pat, text, re.MULTILINE)
             if match:
-                return match.group(1).strip()
+                v = match.group(1).strip()
+                if v.lower() not in ["invoice", "receipt", "statement"]:
+                    return v
         return None
 
     def _find_invoice_number(self, text: str, filename: str) -> str | None:
-        match = re.search(r'(?i)(?:invoice|inv)\s*(?:num|number|#)?\s*[:\-]?\s*([A-Za-z0-9\-]+)', text)
-        if match:
-            return match.group(1).strip()
+        patterns = [
+            r'(?i)\b(?:invoice|inv|bill)\s*(?:num(?:ber)?|no\.?|code|id|ref|#)\s*[:\-#]?\s*([A-Za-z0-9\-\/\.]{2,30})',
+            r'(?i)\b(?:invoice|inv)\s*[:\-#]\s*([A-Za-z0-9\-\/\.]{3,30})',
+            r'(?i)\b(?:ref|reference|doc)\s*(?:num(?:ber)?|no\.?|#)?\s*[:\-#]?\s*([A-Za-z0-9\-\/\.]{3,30})',
+        ]
+        for pat in patterns:
+            for match in re.finditer(pat, text):
+                val = match.group(1).strip()
+                if val.lower() not in ["no", "number", "num", "date", "amount", "due", "total", "id", "code"]:
+                    return val
         return None
 
     def _find_date(self, text: str, keywords: list[str]) -> str | None:
@@ -131,9 +145,10 @@ class LayoutLMService:
                 if not re.search(r'\d', search_text) and i + 1 < len(lines):
                     search_text = lines[i + 1]
 
+                # Strip non-digit noise characters like ■ or percentages like (18%)
                 search_text_clean = re.sub(r'\(?\d+(?:\.\d+)?%\)?', '', search_text)
 
-                curr_matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b)\s*([\d,]+(?:\.\d{1,2})?)', search_text_clean)
+                curr_matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)', search_text_clean)
                 for m in curr_matches:
                     try:
                         val = float(m.replace(',', ''))
@@ -142,7 +157,7 @@ class LayoutLMService:
                     except ValueError:
                         pass
 
-                dec_matches = re.findall(r'\b([\d,]+\.\d{2})\b', search_text_clean)
+                dec_matches = re.findall(r'[\d,]+\.\d{2}', search_text_clean)
                 for m in dec_matches:
                     try:
                         val = float(m.replace(',', ''))
@@ -163,7 +178,7 @@ class LayoutLMService:
 
     def _find_all_monetary_vals(self, text: str) -> list[float]:
         amounts: list[float] = []
-        matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b)\s*([\d,]+(?:\.\d{1,2})?)|\b([\d,]+\.\d{2})\b', text)
+        matches = re.findall(r'(?:[$€£₹]|\bUSD\b|\bEUR\b|\bGBP\b|\bINR\b|\bRs\.?|■)\s*([\d,]+(?:\.\d{1,2})?)|\b([\d,]+\.\d{2})\b', text)
         for m in matches:
             val_str = m[0] or m[1]
             if not val_str:

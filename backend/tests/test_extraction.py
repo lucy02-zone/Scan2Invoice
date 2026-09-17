@@ -64,5 +64,44 @@ class ExtractionServiceTests(unittest.TestCase):
                 os.remove(img_path)
 
 
+    def test_brightwave_and_scan2invoice_formats(self):
+        text1 = """
+        INVOICE
+        BrightWave Digital Services
+        78 MG Road, Chennai, Tamil Nadu
+        GSTIN: 33AAFCB5678L1Z2
+
+        Invoice No: BW-2026-104
+        Invoice Date: 14-Aug-2026
+        Due Date: 13-Sep-2026
+
+        Subtotal ■53,000.00
+        GST (18%) ■9,540.00
+        Total Amount Due ■62,540.00
+        """
+        res1 = self.layout_service.extract_fields(text1, filename="brightwave.pdf")
+        self.assertEqual(res1["vendor_name"], "BrightWave Digital Services")
+        self.assertEqual(res1["invoice_number"], "BW-2026-104")
+        self.assertEqual(res1["total_amount"], "62,540.00")
+        self.assertEqual(res1["subtotal"], "53,000.00")
+
+        text2 = """
+        INVOICE
+        Scan2Invoice Solutions
+        123 Tech Park, Hyderabad, Telangana
+
+        Invoice No: INV-2026-001
+        Invoice Date: 14-Aug-2026
+
+        Subtotal ■35,000.00
+        GST (18%) ■6,300.00
+        Total ■41,300.00
+        """
+        res2 = self.layout_service.extract_fields(text2, filename="scan2invoice.pdf")
+        self.assertEqual(res2["vendor_name"], "Scan2Invoice Solutions")
+        self.assertEqual(res2["invoice_number"], "INV-2026-001")
+        self.assertEqual(res2["total_amount"], "41,300.00")
+
+
 if __name__ == "__main__":
     unittest.main()

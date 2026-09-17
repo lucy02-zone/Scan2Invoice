@@ -83,7 +83,29 @@ class OCRService:
         return "\n".join(text_lines)
 
     def _extract_from_image(self, file_path: Path) -> str:
-        """Extract text from raster images using RapidOCR or pytesseract."""
+        """Extract text from raster images using RapidOCR or pytesseract with image preprocessing."""
+        try:
+            from PIL import Image, ImageOps
+
+            image = Image.open(file_path)
+            image = ImageOps.exif_transpose(image)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+
+            # Scale up small images for better OCR detection
+            w, h = image.size
+            if w < 1000 or h < 1000:
+                factor = max(1000.0 / max(w, 1), 1000.0 / max(h, 1))
+                new_size = (int(w * factor), int(h * factor))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+
+            ocr_text = self._ocr_pil_image(image)
+            if ocr_text:
+                return ocr_text
+        except Exception as e:
+            logger.warning(f"PIL image preprocessing failed for {file_path}: {e}")
+
+        # Fallback direct path OCR
         rapidocr = self._get_rapidocr()
         if rapidocr:
             try:
@@ -94,7 +116,7 @@ class OCRService:
                     if text:
                         return text
             except Exception as e:
-                logger.warning(f"RapidOCR image extraction failed for {file_path}: {e}")
+                logger.warning(f"RapidOCR direct image extraction failed for {file_path}: {e}")
 
         try:
             import pytesseract
